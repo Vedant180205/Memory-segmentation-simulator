@@ -29,6 +29,12 @@ Built with Python + Tkinter + Matplotlib, styled with a sleek dark theme.
 
 ---
 
+## 🖼️ Screenshot
+
+![Memory Segmentation Simulator UI](assets/screenshot.png)
+
+---
+
 ## ✨ Features
 
 - **Multi-Process Management** — Create and switch between multiple processes, each with its own segment table
