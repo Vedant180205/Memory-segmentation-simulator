@@ -21,7 +21,9 @@ class SegmentationSimulatorUI:
         self.allocation_strategy = "first"
         self.trace_mode = False
         
-        # Setup styles (light text on dark background)
+        # For tooltip
+        self.hover_annotation = None
+        
         self.setup_styles()
         self.setup_ui()
         self.new_process()
@@ -31,112 +33,83 @@ class SegmentationSimulatorUI:
         style = ttk.Style()
         style.theme_use('clam')
         
-        # Base colors
-        bg = "#1e1e2e"          # dark background
-        fg = "#ffffff"          # white text
-        selectbg = "#3b82f6"    # blue selection
-        entrybg = "#2d2d3d"     # slightly lighter for entries
-        buttonbg = "#3b82f6"
-        buttonfg = "#ffffff"
+        bg = "#1e1e2e"
+        fg = "#ffffff"
+        selectbg = "#3b82f6"
+        entrybg = "#2d2d3d"
         
-        # Configure common styles
+        # Custom style for process combobox (black text on white)
+        style.configure("ProcessCombo.TCombobox",
+                        fieldbackground="white",
+                        foreground="black",
+                        selectbackground=selectbg,
+                        selectforeground="white")
+        
+        # Force dropdown listbox colors
+        self.root.option_add('*TCombobox*Listbox.background', 'white')
+        self.root.option_add('*TCombobox*Listbox.foreground', 'black')
+        self.root.option_add('*TCombobox*Listbox.selectBackground', selectbg)
+        self.root.option_add('*TCombobox*Listbox.selectForeground', 'white')
+        
+        # General styles
         style.configure(".", background=bg, foreground=fg, fieldbackground=entrybg)
         style.configure("TFrame", background=bg)
         style.configure("TLabel", background=bg, foreground=fg, font=("Segoe UI", 10))
         style.configure("TLabelframe", background=bg, foreground=fg)
         style.configure("TLabelframe.Label", background=bg, foreground=fg, font=("Segoe UI", 10, "bold"))
-        
-        # Buttons
-        style.configure("TButton", background=buttonbg, foreground=buttonfg, 
-                       borderwidth=0, focusthickness=0, padding=6, font=("Segoe UI", 10))
+        style.configure("TButton", background="#3b82f6", foreground=fg, borderwidth=0, padding=6)
         style.map("TButton", background=[("active", "#2563eb")])
-        
-        # Entry
-        style.configure("TEntry", fieldbackground=entrybg, foreground=fg, insertcolor=fg,
-                       borderwidth=1, relief="solid")
-        
-        # Combobox
-        style.configure("TCombobox", fieldbackground=entrybg, foreground=fg, 
-                       selectbackground=selectbg, selectforeground=fg)
-        style.map("TCombobox", fieldbackground=[("readonly", entrybg)])
-        
-        # Scrollbar
-        style.configure("Vertical.TScrollbar", background=entrybg, troughcolor=bg,
-                       arrowcolor=fg, borderwidth=0)
-        
-        # Treeview (segment table)
-        style.configure("Treeview", background=entrybg, foreground=fg, 
-                       fieldbackground=entrybg, borderwidth=0)
+        style.configure("TEntry", fieldbackground=entrybg, foreground=fg, insertcolor=fg)
+        style.configure("TCombobox", fieldbackground=entrybg, foreground=fg)
+        style.configure("Treeview", background=entrybg, foreground=fg, fieldbackground=entrybg)
         style.map("Treeview", background=[("selected", selectbg)])
-        style.configure("Treeview.Heading", background=bg, foreground=fg,
-                       font=("Segoe UI", 10, "bold"), relief="flat")
-        
-        # Progressbar
+        style.configure("Treeview.Heading", background=bg, foreground=fg, font=("Segoe UI", 10, "bold"))
         style.configure("TProgressbar", background="#22c55e", troughcolor=entrybg)
-        
-        # Radiobutton
-        style.configure("TRadiobutton", background=bg, foreground=fg, 
-                       selectcolor=bg, focusthickness=0)
-        
-        # Checkbutton
-        style.configure("TCheckbutton", background=bg, foreground=fg,
-                       selectcolor=bg, focusthickness=0)
+        style.configure("TRadiobutton", background=bg, foreground=fg, selectcolor=bg)
+        style.configure("TCheckbutton", background=bg, foreground=fg, selectcolor=bg)
+        style.configure("Horizontal.TScale", background=bg, troughcolor=entrybg)
     
     def setup_ui(self):
-        # Main container with paned window
         self.paned = tk.PanedWindow(self.root, orient=tk.HORIZONTAL, bg="#1e1e2e", 
                                     sashrelief=tk.RAISED, sashwidth=8)
         self.paned.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Left panel (segment management)
         left_frame = ttk.Frame(self.paned)
         self.paned.add(left_frame, width=450)
-        
-        # Right panel (visualization & translation)
         right_frame = ttk.Frame(self.paned)
         self.paned.add(right_frame, width=800)
         
-        # ========== LEFT PANEL CONTENT ==========
-        # Process selector
+        # ---------- LEFT PANEL (unchanged) ----------
         proc_frame = ttk.LabelFrame(left_frame, text="Process Management", padding=10)
         proc_frame.pack(fill=tk.X, padx=10, pady=10)
-        
         ttk.Label(proc_frame, text="Current Process:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
-        self.process_combo = ttk.Combobox(proc_frame, state="readonly", width=25)
+        self.process_combo = ttk.Combobox(proc_frame, state="readonly", width=25, style="ProcessCombo.TCombobox")
         self.process_combo.grid(row=0, column=1, padx=5, pady=5)
         self.process_combo.bind("<<ComboboxSelected>>", self.on_process_change)
-        
         ttk.Button(proc_frame, text="➕ New Process", command=self.new_process).grid(row=0, column=2, padx=5, pady=5)
         ttk.Button(proc_frame, text="❌ Delete Process", command=self.delete_process).grid(row=0, column=3, padx=5, pady=5)
         
-        # Segment table
         table_frame = ttk.LabelFrame(left_frame, text="Segment Table", padding=10)
         table_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
         columns = ("Name", "Size", "Base", "Perms")
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=12)
         for col in columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, width=90)
         self.tree.column("Name", width=120)
-        
         scrollbar = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        # Segment buttons
         seg_btn_frame = ttk.Frame(left_frame)
         seg_btn_frame.pack(fill=tk.X, padx=10, pady=5)
-        
         ttk.Button(seg_btn_frame, text="➕ Add Segment", command=self.add_segment_dialog).pack(side=tk.LEFT, padx=5)
         ttk.Button(seg_btn_frame, text="✏️ Edit Segment", command=self.edit_segment_dialog).pack(side=tk.LEFT, padx=5)
         ttk.Button(seg_btn_frame, text="🗑️ Delete Segment", command=self.delete_segment).pack(side=tk.LEFT, padx=5)
         
-        # Allocation strategy
         strat_frame = ttk.LabelFrame(left_frame, text="Allocation Strategy", padding=10)
         strat_frame.pack(fill=tk.X, padx=10, pady=10)
-        
         self.strategy_var = tk.StringVar(value="first")
         strategies = [("First Fit", "first"), ("Best Fit", "best"), ("Worst Fit", "worst")]
         for i, (text, val) in enumerate(strategies):
@@ -144,31 +117,39 @@ class SegmentationSimulatorUI:
                                  command=self.change_strategy)
             rb.grid(row=0, column=i, padx=10, pady=5)
         
-        # Action buttons
         action_frame = ttk.Frame(left_frame)
         action_frame.pack(fill=tk.X, padx=10, pady=10)
-        
         ttk.Button(action_frame, text="🎯 Assign Bases", command=self.assign_bases).pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="🔄 Compaction", command=self.compact_memory).pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_frame, text="📸 Export Map", command=self.export_memory_map).pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="💾 Save", command=self.save_all).pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="📂 Load", command=self.load_all).pack(side=tk.LEFT, padx=5)
         
-        # ========== RIGHT PANEL CONTENT ==========
+        # ---------- RIGHT PANEL ----------
+        # Memory Slider
+        slider_frame = ttk.LabelFrame(right_frame, text="Memory Configuration", padding=10)
+        slider_frame.pack(fill=tk.X, padx=10, pady=10)
+        ttk.Label(slider_frame, text="Total Physical Memory:").pack(side=tk.LEFT, padx=5)
+        self.mem_slider = ttk.Scale(slider_frame, from_=1024, to=8192, orient=tk.HORIZONTAL,
+                                    value=self.total_memory, command=self.on_memory_slider)
+        self.mem_slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        self.mem_slider_label = ttk.Label(slider_frame, text=f"{self.total_memory} B")
+        self.mem_slider_label.pack(side=tk.LEFT, padx=5)
+        
         # Memory gauge
         gauge_frame = ttk.LabelFrame(right_frame, text="Memory Status", padding=10)
         gauge_frame.pack(fill=tk.X, padx=10, pady=10)
-        
         self.usage_label = ttk.Label(gauge_frame, text="📊 Memory Usage: 0%")
         self.usage_label.pack(side=tk.LEFT, padx=5)
-        
         self.frag_label = ttk.Label(gauge_frame, text="🧩 Fragmentation: 0%")
         self.frag_label.pack(side=tk.RIGHT, padx=5)
-        
-        # Progress bar
         self.progress = ttk.Progressbar(gauge_frame, mode='determinate', length=400)
         self.progress.pack(fill=tk.X, pady=5)
         
-        # Matplotlib figure (colors adjusted for dark theme)
+        self.extra_stats_label = ttk.Label(gauge_frame, text="", font=("Segoe UI", 9))
+        self.extra_stats_label.pack(fill=tk.X, pady=(0,5))
+        
+        # Matplotlib figure - this should take as much space as possible
         self.fig, self.ax = plt.subplots(figsize=(10, 3), facecolor="#1e1e2e")
         self.ax.set_facecolor("#1e1e2e")
         self.ax.tick_params(colors='white')
@@ -177,21 +158,29 @@ class SegmentationSimulatorUI:
         self.canvas = FigureCanvasTkAgg(self.fig, master=right_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Translation panel
-        trans_frame = ttk.LabelFrame(right_frame, text="Address Translation", padding=10)
-        trans_frame.pack(fill=tk.X, padx=10, pady=10)
+        # Tooltip connection
+        self.canvas.mpl_connect('motion_notify_event', self.on_hover)
+        
+        # ----- BOTTOM AREA: fixed height, side by side -----
+        bottom_container = ttk.Frame(right_frame)
+        bottom_container.pack(fill=tk.X, expand=False, padx=10, pady=(0,10))
+        # Give it a fixed height (adjust as needed, but it will size to content anyway)
+        bottom_container.configure(height=280)
+        # Prevent the container from shrinking below its content
+        bottom_container.pack_propagate(False)
+        
+        # Left column: Address Translation
+        trans_frame = ttk.LabelFrame(bottom_container, text="Address Translation", padding=10)
+        trans_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0,5))
         
         input_frame = ttk.Frame(trans_frame)
         input_frame.pack(fill=tk.X, pady=5)
-        
         ttk.Label(input_frame, text="Segment Index:").pack(side=tk.LEFT, padx=5)
         self.entry_seg = ttk.Entry(input_frame, width=8)
         self.entry_seg.pack(side=tk.LEFT, padx=5)
-        
         ttk.Label(input_frame, text="Offset:").pack(side=tk.LEFT, padx=5)
         self.entry_off = ttk.Entry(input_frame, width=10)
         self.entry_off.pack(side=tk.LEFT, padx=5)
-        
         self.translate_btn = ttk.Button(input_frame, text="Translate", command=self.translate_address)
         self.translate_btn.pack(side=tk.LEFT, padx=10)
         
@@ -203,17 +192,206 @@ class SegmentationSimulatorUI:
         self.result_label = ttk.Label(trans_frame, text="", font=("Segoe UI", 12, "bold"))
         self.result_label.pack(anchor=tk.W, pady=5)
         
-        # Trace text area (using tk.Text for better control)
-        self.trace_text = tk.Text(trans_frame, height=6, bg="#2d2d3d", fg="#ffffff", 
+        # Trace text area with limited height
+        self.trace_text = tk.Text(trans_frame, height=5, bg="#2d2d3d", fg="#ffffff", 
                                   wrap=tk.WORD, insertbackground="white")
-        self.trace_text.pack(fill=tk.X, pady=5)
+        self.trace_text.pack(fill=tk.BOTH, expand=True, pady=5)
+        
+        # Right column: Strategy Explanation
+        self.strategy_explanation_frame = ttk.LabelFrame(bottom_container, text="Allocation Strategy Explanation", padding=10)
+        self.strategy_explanation_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5,0))
+        self.strategy_explanation_text = tk.Text(self.strategy_explanation_frame, wrap=tk.WORD,
+                                                 bg="#2d2d3d", fg="#ffffff", font=("Segoe UI", 10))
+        self.strategy_explanation_text.pack(fill=tk.BOTH, expand=True)
+        self.strategy_explanation_text.config(state=tk.DISABLED)
+        
+        self.update_strategy_explanation()
     
-    # ------------------- All methods remain exactly as before -------------------
-    # (They are unchanged from the previous working version)
-    # I will include them for completeness, but they are identical to the earlier correct methods.
+    def update_strategy_explanation(self):
+        strategy = self.allocation_strategy
+        if strategy == "first":
+            explanation = (
+                "First Fit Algorithm:\n"
+                "• Allocates the first free hole that is large enough.\n"
+                "• Searches from the beginning of memory.\n"
+                "• Fast but can lead to many small holes at the start.\n"
+                "• May leave large holes at the end unused."
+            )
+        elif strategy == "best":
+            explanation = (
+                "Best Fit Algorithm:\n"
+                "• Allocates the smallest free hole that is large enough.\n"
+                "• Searches all holes to find the best match.\n"
+                "• Minimizes wasted space inside the hole.\n"
+                "• Can create many very small, unusable holes (external fragmentation)."
+            )
+        elif strategy == "worst":
+            explanation = (
+                "Worst Fit Algorithm:\n"
+                "• Allocates the largest free hole available.\n"
+                "• Searches all holes to find the biggest one.\n"
+                "• Leaves a large remaining hole for future allocations.\n"
+                "• Often performs poorly in practice, but reduces fragmentation in some cases."
+            )
+        else:
+            explanation = "Select an allocation strategy."
+        
+        self.strategy_explanation_text.config(state=tk.NORMAL)
+        self.strategy_explanation_text.delete(1.0, tk.END)
+        self.strategy_explanation_text.insert(tk.END, explanation)
+        self.strategy_explanation_text.config(state=tk.DISABLED)
+        
+        # Initial explanation
+        self.update_strategy_explanation()
     
+    def update_strategy_explanation(self):
+        """Update the text in the strategy explanation panel based on current selection."""
+        strategy = self.allocation_strategy
+        if strategy == "first":
+            explanation = (
+                "First Fit Algorithm:\n"
+                "• Allocates the first free hole that is large enough.\n"
+                "• Searches from the beginning of memory.\n"
+                "• Fast but can lead to many small holes at the start.\n"
+                "• May leave large holes at the end unused."
+            )
+        elif strategy == "best":
+            explanation = (
+                "Best Fit Algorithm:\n"
+                "• Allocates the smallest free hole that is large enough.\n"
+                "• Searches all holes to find the best match.\n"
+                "• Minimizes wasted space inside the hole.\n"
+                "• Can create many very small, unusable holes (external fragmentation)."
+            )
+        elif strategy == "worst":
+            explanation = (
+                "Worst Fit Algorithm:\n"
+                "• Allocates the largest free hole available.\n"
+                "• Searches all holes to find the biggest one.\n"
+                "• Leaves a large remaining hole for future allocations.\n"
+                "• Often performs poorly in practice, but reduces fragmentation in some cases."
+            )
+        else:
+            explanation = "Select an allocation strategy."
+        
+        self.strategy_explanation_text.config(state=tk.NORMAL)
+        self.strategy_explanation_text.delete(1.0, tk.END)
+        self.strategy_explanation_text.insert(tk.END, explanation)
+        self.strategy_explanation_text.config(state=tk.DISABLED)
+    
+    # ------------------- Existing Methods (unchanged except small fix) -------------------
     def change_strategy(self):
         self.allocation_strategy = self.strategy_var.get()
+        self.update_strategy_explanation()
+    
+    def on_memory_slider(self, val):
+        new_mem = int(float(val))
+        self.total_memory = new_mem
+        self.mem_slider_label.config(text=f"{new_mem} B")
+        self.mem_manager.total_memory = new_mem
+        proc = self.get_current_process()
+        if proc and proc.segments:
+            self.mem_manager.reset_holes(proc.segments)
+        else:
+            self.mem_manager.reset_holes([])
+        self.update_memory_plot()
+        self.update_stats()
+    
+    def update_stats(self):
+        proc = self.get_current_process()
+        if not proc:
+            used = 0
+            free = self.total_memory
+            frag = 0
+            largest_hole = 0
+            hole_count = 0
+        else:
+            used = proc.total_memory()
+            free = self.total_memory - used
+            if free > 0:
+                holes = [(s, size) for s, size in self.mem_manager.free_holes if size > 0]
+                hole_count = len(holes)
+                largest_hole = max((size for _, size in holes), default=0)
+                frag = (1 - largest_hole / free) * 100 if free > 0 else 0
+            else:
+                frag = 0
+                hole_count = 0
+                largest_hole = 0
+        used_percent = (used / self.total_memory) * 100
+        self.progress['value'] = used_percent
+        self.usage_label.config(text=f"📊 Memory Usage: {used}/{self.total_memory} bytes ({used_percent:.1f}%)")
+        self.frag_label.config(text=f"🧩 Fragmentation: {frag:.1f}%")
+        self.extra_stats_label.config(text=f"📏 Largest free block: {largest_hole} B  |  🕳️ Free holes: {hole_count}")
+    
+    def flash_plot(self):
+        original_facecolor = self.ax.get_facecolor()
+        self.ax.set_facecolor('#ffff00')
+        self.canvas.draw()
+        self.root.after(200, lambda: self.restore_facecolor(original_facecolor))
+    
+    def restore_facecolor(self, original):
+        self.ax.set_facecolor(original)
+        self.canvas.draw()
+    
+    def assign_bases(self):
+        proc = self.get_current_process()
+        if not proc.segments:
+            messagebox.showinfo("Info", "No segments to assign")
+            return
+        success = self.mem_manager.assign_bases(proc.segments, self.allocation_strategy)
+        if success:
+            self.refresh_segment_table()
+            self.update_memory_plot()
+            self.update_stats()
+            self.flash_plot()
+            messagebox.showinfo("Success", f"Bases assigned using {self.allocation_strategy} fit")
+        else:
+            messagebox.showerror("Error", "Not enough contiguous memory!")
+    
+    def export_memory_map(self):
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG files", "*.png"), ("All files", "*.*")],
+            title="Save Memory Map As"
+        )
+        if filename:
+            self.fig.savefig(filename, dpi=150, bbox_inches='tight')
+            messagebox.showinfo("Export Successful", f"Memory map saved to:\n{filename}")
+    
+    def on_hover(self, event):
+        if event.inaxes != self.ax:
+            if self.hover_annotation:
+                self.hover_annotation.remove()
+                self.hover_annotation = None
+                self.canvas.draw_idle()
+            return
+        x = event.xdata
+        if x is None:
+            return
+        proc = self.get_current_process()
+        if not proc:
+            return
+        hovered_seg = None
+        for seg in proc.segments:
+            if seg.base <= x <= seg.base + seg.size:
+                hovered_seg = seg
+                break
+        if hovered_seg:
+            tooltip_text = f"Name: {hovered_seg.name}\nSize: {hovered_seg.size} B\nBase: {hovered_seg.base}\nPerms: {hovered_seg.permissions}"
+            if self.hover_annotation:
+                self.hover_annotation.remove()
+            self.hover_annotation = self.ax.annotate(
+                tooltip_text, xy=(x, 0.5), xytext=(10, 20),
+                textcoords='offset points', fontsize=9,
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="black", alpha=0.8, edgecolor='white'),
+                color='white', ha='left', va='bottom'
+            )
+            self.canvas.draw_idle()
+        else:
+            if self.hover_annotation:
+                self.hover_annotation.remove()
+                self.hover_annotation = None
+                self.canvas.draw_idle()
     
     def get_current_process(self):
         if 0 <= self.current_process_index < len(self.processes):
@@ -275,7 +453,6 @@ class SegmentationSimulatorUI:
         dialog.configure(bg="#1e1e2e")
         dialog.grab_set()
         
-        # Use tk widgets with explicit colors
         tk.Label(dialog, text="Segment Name:", bg="#1e1e2e", fg="#ffffff").pack(pady=5)
         name_entry = tk.Entry(dialog, bg="#2d2d3d", fg="#ffffff", insertbackground="white")
         name_entry.pack()
@@ -311,7 +488,7 @@ class SegmentationSimulatorUI:
             self.update_stats()
             dialog.destroy()
         
-        tk.Button(dialog, text="Add Segment", command=add, bg="#10b981", fg="#ffffff", 
+        tk.Button(dialog, text="Add Segment", command=add, bg="#10b981", fg="#ffffff",
                  activebackground="#059669", activeforeground="white").pack(pady=20)
     
     def edit_segment_dialog(self):
@@ -371,20 +548,6 @@ class SegmentationSimulatorUI:
         self.update_memory_plot()
         self.update_stats()
     
-    def assign_bases(self):
-        proc = self.get_current_process()
-        if not proc.segments:
-            messagebox.showinfo("Info", "No segments to assign")
-            return
-        success = self.mem_manager.assign_bases(proc.segments, self.allocation_strategy)
-        if success:
-            self.refresh_segment_table()
-            self.update_memory_plot()
-            self.update_stats()
-            messagebox.showinfo("Success", f"Bases assigned using {self.allocation_strategy} fit")
-        else:
-            messagebox.showerror("Error", "Not enough contiguous memory!")
-    
     def compact_memory(self):
         proc = self.get_current_process()
         if not proc.segments:
@@ -394,25 +557,6 @@ class SegmentationSimulatorUI:
         self.update_memory_plot()
         self.update_stats()
         messagebox.showinfo("Compaction", "Memory compacted!")
-    
-    def update_stats(self):
-        proc = self.get_current_process()
-        if not proc:
-            used = 0
-            free = self.total_memory
-            frag = 0
-        else:
-            used = proc.total_memory()
-            free = self.total_memory - used
-            if free > 0:
-                largest_hole = max((size for _, size in self.mem_manager.free_holes), default=0)
-                frag = (1 - largest_hole / free) * 100 if free > 0 else 0
-            else:
-                frag = 0
-        used_percent = (used / self.total_memory) * 100
-        self.progress['value'] = used_percent
-        self.usage_label.config(text=f"📊 Memory Usage: {used}/{self.total_memory} bytes ({used_percent:.1f}%)")
-        self.frag_label.config(text=f"🧩 Fragmentation: {frag:.1f}%")
     
     def update_memory_plot(self):
         proc = self.get_current_process()
@@ -430,6 +574,7 @@ class SegmentationSimulatorUI:
             for start, size in self.mem_manager.free_holes:
                 if size > 0:
                     self.ax.barh(0.5, size, left=start, height=0.4, color="#475569", alpha=0.3, edgecolor='none')
+                    self.ax.barh(0.5, size, left=start, height=0.4, facecolor='none', edgecolor='white', linewidth=1, hatch='//', alpha=0.5)
             
             # Draw segments
             colors = ["#3b82f6", "#f59e0b", "#10b981", "#ec489a", "#8b5cf6", "#06b6d4"]
@@ -437,10 +582,22 @@ class SegmentationSimulatorUI:
                 color = colors[i % len(colors)]
                 self.ax.barh(0.5, seg.size, left=seg.base, height=0.4, color=color,
                              edgecolor="white", linewidth=2, alpha=0.9)
-                self.ax.text(seg.base + seg.size/2, 0.5, f"{seg.name}\n[{seg.base}-{seg.base+seg.size}]",
-                             ha='center', va='center', fontsize=9, fontweight='bold', color="white")
+                self.ax.barh(0.5, seg.size, left=seg.base, height=0.3, color='white', alpha=0.15)
+                
+                # Intelligent label placement
+                label_text = f"{seg.name}\n[{seg.base}-{seg.base+seg.size}]"
+                fontsize = max(6, min(10, seg.size / 50))
+                if seg.size < 80:
+                    x_pos = seg.base + seg.size + 10
+                    ha = 'left'
+                else:
+                    x_pos = seg.base + seg.size/2
+                    ha = 'center'
+                self.ax.text(x_pos, 0.5, label_text, ha=ha, va='center', fontsize=fontsize,
+                             fontweight='bold', color='white',
+                             bbox=dict(facecolor='black', alpha=0.7, boxstyle='round,pad=0.2', edgecolor='none'))
         
-        # Draw pointer if translation valid
+        # Pointer if translation valid
         try:
             seg_idx = int(self.entry_seg.get())
             offset = int(self.entry_off.get())
@@ -461,21 +618,24 @@ class SegmentationSimulatorUI:
         proc = self.get_current_process()
         if not proc:
             self.result_label.config(text="No process selected")
+            self.trace_text.delete("1.0", tk.END)
             return
         try:
             seg_idx = int(self.entry_seg.get())
             offset = int(self.entry_off.get())
         except:
             self.result_label.config(text="Invalid input")
+            self.trace_text.delete("1.0", tk.END)
             return
-        
+
         if seg_idx < 0 or seg_idx >= len(proc.segments):
             self.result_label.config(text="Segment index out of range")
+            self.trace_text.delete("1.0", tk.END)
             return
-        
+
         seg = proc.segments[seg_idx]
-        self.trace_text.delete("1.0", tk.END)
-        
+        self.trace_text.delete("1.0", tk.END)   # Clear previous trace
+
         if self.trace_var.get():
             trace = f"Step 1: Segment {seg_idx} → {seg.name}, Base={seg.base}, Limit={seg.size}\n"
             trace += f"Step 2: Check offset {offset} < {seg.size} → {offset < seg.size}\n"
