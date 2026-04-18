@@ -67,6 +67,8 @@ data/
 # Matplotlib figure exports (if any)
 *.png
 *.pdf
+# But allow screenshots committed to assets/
+!assets/*.png
 
 # ── OS ────────────────────────────────────────────────────────────────────────
 desktop.ini
